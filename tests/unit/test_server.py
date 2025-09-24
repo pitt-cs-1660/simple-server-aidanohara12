@@ -3,6 +3,8 @@
 #############################################
 import pytest
 from fastapi.testclient import TestClient
+import sys
+sys.path.append('.')
 from cc_simple_server.server import app
 from cc_simple_server.database import init_db, get_db_connection
 

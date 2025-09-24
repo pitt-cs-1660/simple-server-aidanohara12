@@ -27,59 +27,54 @@ async def read_root():
 # POST ROUTE data is sent in the body of the request
 @app.post("/tasks/", response_model=TaskRead)
 async def create_task(task_data: TaskCreate):
-    """
-    Create a new task
-
-    Args:
-        task_data (TaskCreate): The task data to be created
-
-    Returns:
-        TaskRead: The created task data
-    """
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO tasks (title, description, completed) VALUES (?, ?, ?)",(task_data.title, task_data.description, task_data.completed))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return TaskRead(id=cursor.lastrowid, title=task_data.title, description=task_data.description, completed=task_data.completed)
 
 
 # GET ROUTE to get all tasks
 @app.get("/tasks/", response_model=list[TaskRead])
 async def get_tasks():
-    """
-    Get all tasks in the whole wide database
-
-    Args:
-        None
-
-    Returns:
-        list[TaskRead]: A list of all tasks in the database
-    """
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
-
+    try: 
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tasks")
+        rows = cursor.fetchall()
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    tasks = [TaskRead(**dict(row)) for row in rows]
+    return tasks
 
 # UPDATE ROUTE data is sent in the body of the request and the task_id is in the URL
 @app.put("/tasks/{task_id}/", response_model=TaskRead)
 async def update_task(task_id: int, task_data: TaskCreate):
-    """
-    Update a task by its ID
-
-    Args:
-        task_id (int): The ID of the task to be updated
-        task_data (TaskCreate): The task data to be updated
-
-    Returns:
-        TaskRead: The updated task data
-    """
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE tasks SET title = ?, description = ?, completed = ? WHERE id = ?", (task_data.title, task_data.description, task_data.completed, task_id))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return TaskRead(id=task_id, title=task_data.title, description=task_data.description, completed=task_data.completed)
 
 
 # DELETE ROUTE task_id is in the URL
 @app.delete("/tasks/{task_id}/")
 async def delete_task(task_id: int):
-    """
-    Delete a task by its ID
-
-    Args:
-        task_id (int): The ID of the task to be deleted
-
-    Returns:
-        dict: A message indicating that the task was deleted successfully
-    """
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return {"message": f"Task {task_id} deleted successfully"}
