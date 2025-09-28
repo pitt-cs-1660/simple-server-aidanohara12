@@ -21,6 +21,8 @@ RUN uv pip install --python /opt/venv/bin/python fastapi uvicorn pydantic httpx 
 
 # Bring in app source
 COPY cc_simple_server/ ./cc_simple_server/
+# Copy tests so they exist in the runtime image
+COPY tests/ ./tests/
 
 # =========================
 # Final Stage (runtime)
@@ -40,6 +42,8 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Copy runtime application code
 COPY cc_simple_server/ ./cc_simple_server/
+# Copy tests for pytest execution
+COPY --from=builder /app/tests/ ./tests/
 
 # Non-root user for security
 RUN addgroup --system app && adduser --system --ingroup app app \
