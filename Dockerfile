@@ -1,42 +1,53 @@
+# =========================
 # Build Stage
-FROM python:3.12-slim AS builder
+# =========================
+FROM python:3.12 AS builder
 
-# Install uv package manager
-RUN pip install uv
+# Install uv (single static binaries)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Set working directory
 WORKDIR /app
 
-# Copy pyproject.toml for dependency installation
-COPY pyproject.toml .
+# Copy metadata EARLY for caching
+COPY pyproject.toml ./
+# If your pyproject declares [project].readme = "README.md", you MUST copy it too
+COPY README.md ./
 
-# Create virtual environment and install dependencies using uv
-RUN uv venv /opt/venv
-RUN /opt/venv/bin/pip install -e .
+# Create runtime venv and install deps
+RUN python -m venv /opt/venv
 
-# Final Stage
+# Install dependencies directly from pyproject.toml
+RUN uv pip install --python /opt/venv/bin/python fastapi uvicorn pydantic httpx pytest pytest-cov
+
+# Bring in app source
+COPY cc_simple_server/ ./cc_simple_server/
+
+# =========================
+# Final Stage (runtime)
+# =========================
 FROM python:3.12-slim
 
-# Copy the virtual environment from build stage
-COPY --from=builder /opt/venv /opt/venv
+# Use the venv from the build stage
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Make sure we use venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Set working directory
 WORKDIR /app
 
-# Copy application source code
+# Copy the virtual environment
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy runtime application code
 COPY cc_simple_server/ ./cc_simple_server/
-COPY pyproject.toml .
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# Non-root user for security
+RUN addgroup --system app && adduser --system --ingroup app app \
+ && chown -R app:app /app
+USER app
 
-# Expose port 8000
+# SQLite is in stdlib; no extra system packages needed
 EXPOSE 8000
 
-# Set CMD to run FastAPI server on 0.0.0.0:8000
+# Run FastAPI
 CMD ["uvicorn", "cc_simple_server.server:app", "--host", "0.0.0.0", "--port", "8000"]
